@@ -15,6 +15,11 @@
     "email": "marus.gradinaru@gmail.com",
     "maintainer": true
   },
+  "dependencies":
+  {
+    "name": "SmartLogger",
+    "version": "https://github.com/MarusGradinaru/Smart-Logger.git"
+  },
   "frameworks": "arduino",
   "platforms": "espressif32"
 }
