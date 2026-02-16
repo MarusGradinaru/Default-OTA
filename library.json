@@ -1,0 +1,20 @@
+{
+  "name": "DefaultOTA",
+  "version": "1.0.0",
+  "description": "OTA implementation with rollback support for ESP Arduino",
+  "keywords": "ota, rollback",
+  "headers": "DefaultOTA.h",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/MarusGradinaru/Default-OTA.git"
+  },
+  "authors":
+  {
+    "name": "Marus Alexander",
+    "email": "marus.gradinaru@gmail.com",
+    "maintainer": true
+  },
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}
