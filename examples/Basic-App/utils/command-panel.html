@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Client</title>
+</head>
+<body>
+    <button id="btn_restart">Restart</button>
+    <button id="btn_validate">Validate</button>
+    <button id="btn_rollback">Rollback</button>
+    <button id="btn_start">OTA Start</button>
+    <button id="btn_stop">OTA Stop</button>
+    <button id="btn_wlog">Reset WLog</button>
+
+    <script>
+
+        const cmdRestart   = 0x3B91;
+        const cmdValidate  = 0xC7A2; 
+        const cmdRollback  = 0x5ED4; 
+        const cmdOtaStart  = 0xF11F; 
+        const cmdOtaStop   = 0xF00F; 
+        const cmdResetWLog = 0xE2B8;
+
+        const socket = new WebSocket("ws://esp32-ota.local:5000");
+
+        socket.onopen = function() {
+            console.log("WebSocket open.");
+        };
+            
+        socket.onclose = function() {
+            console.log("WebSocket closed.");
+        };
+            
+        socket.onerror = function(error) {
+            console.error("WebSocket error:", error);
+        };
+
+        function SendCommand(cmd) {
+            if(socket.readyState === WebSocket.OPEN) {
+                const buffer = new Uint8Array(2);
+                buffer[0] = cmd & 0xFF;
+                buffer[1] = (cmd >> 8) & 0xFF;          
+                socket.send(buffer);
+                console.log("Command sent !");
+            } else {
+                console.log("Socket is closed !");
+            }
+        }            
+
+        document.getElementById('btn_restart').addEventListener('click', () => SendCommand(cmdRestart));
+        document.getElementById('btn_validate').addEventListener('click', () => SendCommand(cmdValidate));
+        document.getElementById('btn_rollback').addEventListener('click', () => SendCommand(cmdRollback));
+        document.getElementById('btn_start').addEventListener('click', () => SendCommand(cmdOtaStart));
+        document.getElementById('btn_stop').addEventListener('click', () => SendCommand(cmdOtaStop));
+        document.getElementById('btn_wlog').addEventListener('click', () => SendCommand(cmdResetWLog));
+        
+    </script>
+</body>
+</html>
