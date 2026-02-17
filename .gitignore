@@ -1,0 +1,6 @@
+examples/Basic-App/.pio
+examples/Basic-App/.vscode/.browse.c_cpp.db*
+examples/Basic-App/.vscode/c_cpp_properties.json
+examples/Basic-App/.vscode/launch.json
+examples/Basic-App/.vscode/ipch
+examples/Basic-App/include/credentials.h

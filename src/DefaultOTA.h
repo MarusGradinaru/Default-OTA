@@ -15,6 +15,7 @@ class DefaultOTAClass {
     void stop();
     bool firmwareValidate();
     bool firmwareRollback();
+    void enterSafeModeLoop(esp_reset_reason_t reason = ESP_RST_UNKNOWN);
     inline void setDefaultTestSessions(uint8_t tests) { _btest = tests; }
     inline int8_t getRemainingTestSessions() { return otaBoot; }
     inline bool isActive() { return _active; }
@@ -40,7 +41,6 @@ class DefaultOTAClass {
     bool writeOtaStart(bool value);
     bool fwRollback();
     bool isCriticalReset(esp_reset_reason_t reason);
-    void loopSafeMode(esp_reset_reason_t reason);
     void regOtaHandlers();
 };
 
@@ -49,6 +49,5 @@ class DefaultOTAClass {
 #endif
 
 // TO DO:
-//  - at the beginning, rollback should only be done if it is necessary, that is, if there is a valid boot
 //  - handle the behavior when firmware rollback is enabled in the bootloader.
 

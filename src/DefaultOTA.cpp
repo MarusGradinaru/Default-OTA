@@ -1,5 +1,6 @@
 #include "DefaultOTA.h"
 #include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 #include <esp_ota_ops.h>
 #include <SmartLogger.h>
 
@@ -43,11 +44,14 @@ void DefaultOTAClass::handleInit(const char* wifiSsid, const char* wifiPass, con
     PrintIp("[SETUP] Local IP: %s", WiFi.localIP()); 
   );
 
+  // start mDNS... whatever
+  PrintF("[SETUP] Starting mDNS with \"%s\" host...", _otaHost);
+  bool res = MDNS.begin(_otaHost); PrintResult(res);
   // start OTA service if it's enabled 
   regOtaHandlers(); if (readOtaStart()) if (!_start(false)) Halt();
 
   // Safe Mode handler
-  if (otaBoot == -1 && isCriticalReset(reason)) loopSafeMode(reason);
+  if (otaBoot == -1 && isCriticalReset(reason)) enterSafeModeLoop(reason);
 }
 
 void DefaultOTAClass::handleLoop() {
@@ -60,8 +64,10 @@ bool DefaultOTAClass::_start(bool keep) {  // when called from Public, "keep" is
     { PrintLn("[SETUP] Invalid OTA host name !"); return false; }
   Print("[SETUP] Starting OTA..."); ArduinoOTA.setHostname(_otaHost);
   if (_otaPass != nullptr && strlen(_otaPass) > 0) ArduinoOTA.setPassword(_otaPass);
+  ArduinoOTA.setMdnsEnabled(false); ArduinoOTA.setPort(3232);
   ArduinoOTA.setRebootOnSuccess(false);
-  ArduinoOTA.begin(); PrintDoneLn(); 
+  ArduinoOTA.begin(); MDNS.enableArduino(3232, strlen(_otaPass) > 0);
+  PrintDoneLn(); 
   if (keep) {
     Print("[SETUP] Updating settings...");
     bool res = writeOtaStart(true); PrintResult(res); }
@@ -71,7 +77,7 @@ bool DefaultOTAClass::_start(bool keep) {  // when called from Public, "keep" is
 void DefaultOTAClass::stop() {
   if (!_inited || !_started || _active) return;
   Print("[SETUP] Stopping OTA...");
-  ArduinoOTA.end(); PrintResult(true);
+  MDNS.disableArduino(); ArduinoOTA.end(); PrintResult(true);
   Print("[SETUP] Updating settings...");
   bool res = writeOtaStart(false); PrintResult(res);
   _started = false;
@@ -87,16 +93,31 @@ bool DefaultOTAClass::firmwareValidate() {
 bool DefaultOTAClass::firmwareRollback() {
   if (!_inited || !isTesting() || _active) return false;
   Print("[OTA] Rolling back to previous firmware...");
-  bool res = fwRollback(); PrintResult(res);
-  return res;
+  bool res = fwRollback(); PrintResult(res); if (!res) return false;
+  Print("[OTA] Updating ota-boot NVS flag...");
+  res = writeOtaBoot(-1); PrintResult(res); if (!res) return false;
+  PrintLn("[OTA] Restarting..."); delay(100); ESP.restart();
+  return true; // yeah, sure ! :)
 } 
+
+void DefaultOTAClass::enterSafeModeLoop(esp_reset_reason_t reason) {
+  PrintRReason("[SETUP] Entering Safe Mode... Reason: %s", reason);
+  if (!_started) if (!_start(false)) { PrintLn("[SETUP] Error: Cannot start OTA service. System halted !"); Halt(); }
+  PrintLn("[SETUP] Only OTA firmware upload available.");
+  while(true) {
+    if (WiFi.status() == WL_CONNECTED) { ArduinoOTA.handle(); delay(20); }
+    else { WiFi.reconnect(); if (WiFi.waitForConnectResult(120000) != WL_CONNECTED) delay(10000); }
+  }
+}
 
 
 //---------- Private Section ------------------------------------
 
 int8_t DefaultOTAClass::readOtaBoot(){
   if (!otaPrefs.begin(grpDefOta, true)) return -1;
-  int8_t res = otaPrefs.getChar(keyOtaBoot, -1);
+  int8_t res = -1;
+  if (otaPrefs.isKey(keyOtaBoot)) 
+    res = otaPrefs.getChar(keyOtaBoot, -1);
   otaPrefs.end();
   return res;
 }
@@ -110,7 +131,9 @@ bool DefaultOTAClass::writeOtaBoot(int8_t value) {
 
 bool DefaultOTAClass::readOtaStart(){
   if (!otaPrefs.begin(grpDefOta, true)) return true;
-  bool res = otaPrefs.getBool(keyOtaStart, true);
+  bool res = true;
+  if (otaPrefs.isKey(keyOtaStart))
+    res = otaPrefs.getBool(keyOtaStart, true);
   otaPrefs.end();
   return res;
 }
@@ -132,16 +155,6 @@ bool DefaultOTAClass::fwRollback() {
 bool DefaultOTAClass::isCriticalReset(esp_reset_reason_t reason) {
   return !(reason == ESP_RST_POWERON || reason == ESP_RST_EXT || 
     reason == ESP_RST_SW || reason == ESP_RST_DEEPSLEEP);
-}
-
-void DefaultOTAClass::loopSafeMode(esp_reset_reason_t reason) {
-  PrintRReason("[SETUP] Entering Safe Mode... Reason: %s", reason);
-  if (!_started) if (!_start(false)) { PrintLn("[SETUP] System halted."); Halt(); }
-  PrintLn("[SETUP] Only OTA firmware upload available.");
-  while(true) {
-    if (WiFi.status() == WL_CONNECTED) { ArduinoOTA.handle(); delay(20); }
-    else { WiFi.reconnect(); if (WiFi.waitForConnectResult(120000) != WL_CONNECTED) delay(10000); }
-  }
 }
 
 void DefaultOTAClass::regOtaHandlers() {
